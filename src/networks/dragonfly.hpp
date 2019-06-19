@@ -46,7 +46,7 @@ class DragonFlyNew : public Network {
   int _num_of_switch;
   int _grp_num_routers;
   int _grp_num_nodes;
-
+  int numvc;
 
   void _ComputeSize( const Configuration &config );
   void _BuildNet( const Configuration &config );

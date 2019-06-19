@@ -38,8 +38,16 @@
 #define DRAGON_LATENCY
 
 int gP, gA, gG;
+vector<vector<vector<int> > > vcMap;
 
-//calculate the hop count between src and estination
+
+void vcMapUpdate(int routerId, int outputPort, int outputVC){
+    //cout<< vcMap.at(29).at(outputPort-1).at(outputVC)
+    cout<< routerId <<" "<< outputPort <<" "<< outputVC << endl;
+    vcMap.at(routerId).at(outputPort).at(outputVC) += 1;
+}
+
+//calculate the hop count between src and estinat/**/ion
 int dragonflynew_hopcnt(int src, int dest) 
 {
   int hopcnt;
@@ -111,26 +119,38 @@ int dragonfly_port(int rID, int source, int dest){
   int dest_grp_ID = int(dest/_grp_num_nodes);
   int grp_output=-1;
   int grp_RID=-1;
+  cout << "Rid : "<< rID << " source : " << source << " Destination : " << dest << endl;
   
   //which router within this group the packet needs to go to
   if (dest_grp_ID == grp_ID) {
+    cout << "The Destination Terminal Node is in same group, so just find the router to which the terminal is connected" << endl;
     grp_RID = int(dest / gP);
   } else {
+    cout << "The Destination Terminal Node is in different group."<< endl;
+    cout << "Find the optical link first." << endl;
+    cout << "Find the rid connected to the optical link." << endl;
     if (grp_ID > dest_grp_ID) {
       grp_output = dest_grp_ID;
     } else {
       grp_output = dest_grp_ID - 1;
     }
     grp_RID = int(grp_output /gP) + grp_ID * _grp_num_routers;
+    cout << "The grp output : "<< grp_output <<endl;
+    cout << "grp Id : "<< grp_ID << endl;
+    cout << "_grp_num_routers : " << _grp_num_routers << endl; 
+    cout << "The next router Id is : " << grp_RID << endl;
   }
 
   //At the last hop
-  if (dest >= rID*gP && dest < (rID+1)*gP) {    
+  if (dest >= rID*gP && dest < (rID+1)*gP) {
+    cout << "One hop to terminal" << endl;    
     out_port = dest%gP;
   } else if (grp_RID == rID) {
+    cout << "Find the output port conneted to the global link" << endl;
     //At the optical link
     out_port = gP + (gA-1) + grp_output %(gP);
   } else {
+    cout << "Route within the group" << endl ;
     //need to route within a group
     assert(grp_RID!=-1);
 
@@ -142,6 +162,7 @@ int dragonfly_port(int rID, int source, int dest){
   }  
  
   assert(out_port!=-1);
+  cout << "Output Port : "<<out_port<<endl;
   return out_port;
 }
 
@@ -167,6 +188,7 @@ void DragonFlyNew::_ComputeSize( const Configuration &config )
   // intra-group ports : 2*_p - 1
   _p = config.GetInt( "k" );	// # of ports in each switch
   _n = config.GetInt( "n" );
+  numvc = config.GetInt("num_vcs");
 
 
   assert(_n==1);
@@ -209,6 +231,7 @@ void DragonFlyNew::_ComputeSize( const Configuration &config )
   gA = _a;
   _grp_num_routers = gA;
   _grp_num_nodes =_grp_num_routers*gP;
+    vcMap.resize(_num_of_switch);
 
 }
 
@@ -307,7 +330,6 @@ void DragonFlyNew::_BuildNet( const Configuration &config )
     // # of non-local nodes 
     _num_ports_per_switch = (_k - _p);
 
-
     // intra-group GROUP channels
     for ( int dim = 0; dim < _n; ++dim ) {
 
@@ -375,7 +397,22 @@ void DragonFlyNew::_BuildNet( const Configuration &config )
     }
 
   }
-
+  cout<<"NumVc"<<numvc<<endl;
+  for (int i = 0; i < _num_of_switch; i++){
+    vector<vector<int> > portsList;
+    portsList.resize(_k);
+    for (int j = 0; j <= _k; j++){
+        vector<int> vcList;
+        vcList.resize(numvc, 0);
+        portsList.at(j) = vcList;
+    }
+    cout << "Hi here"<<i<<endl;
+    vcMap.at(i) = portsList;
+    cout<<"done"<<i<<endl;
+//      if (1){
+//          cout<<vcMap.at(19)<<endl;
+//      }
+  }
   cout<<"Done links"<<endl;
 }
 
@@ -450,6 +487,7 @@ void min_dragonflynew( const Router *r, const Flit *f, int in_channel,
     *gWatchOut << GetSimTime() << " | " << r->FullName() << " | "
 	       << "	through output port : " << out_port 
 	       << " out vc: " << out_vc << endl;
+  vcMapUpdate(rID, out_port, out_vc);
   outputs->AddRange( out_port, out_vc, out_vc );
 }
 
@@ -557,6 +595,6 @@ void ugal_dragonflynew( const Router *r, const Flit *f, int in_channel,
 
   //vc assignemnt based on phase
   out_vc = f->ph;
-
+  vcMapUpdate(rID, out_port, out_vc);
   outputs->AddRange( out_port, out_vc, out_vc );
 }
